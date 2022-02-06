@@ -8,6 +8,8 @@
 #include "DHT.h"
 #define DHTPIN 8
 #define DHTTYPE DHT22 
+#define DHT11PIN 7
+#define DHT11TYPE DHT11
 
 LiquidCrystal_I2C lcd(0x27,16,2);
 
@@ -18,42 +20,34 @@ LiquidCrystal_I2C lcd(0x27,16,2);
 //int pinDHT22 = 8;
 //int pushButton = 2;
 int pin_motor_coco = 2;
-int pin_motor_arroz = 3;
-int pin_motor_lana = 4;
-int pin_motor_perlita = 5;
-int pin_extractor_in = 6;
-int pin_extractor_out = 7;
+int pin_motor_coco_2 = 5;
+int pin_extractor_in = 3;
+int pin_extractor_out = 4;
 DHT dht(DHTPIN, DHTTYPE);
+DHT dht_2(DHT11PIN, DHT11TYPE);
 RTC_DS3231 rtc;      // crea objeto del tipo RTC_DS3231
 int sustratoASensorPin = A0;
 int sustratoASensorValue = 0;
 int sustratoAPercentValue = 0;
-int sustratoPSensorPin = A1;
-int sustratoPSensorValue = 0;
-int sustratoPPercentValue = 0;
 
-//int sensor_arroz_pin = ;
-
-#define SSID2 "CNT_FLIAGAIBOR" // "WiFiname" Bioinv_IOT
-#define PASS "orion1974" // "Password" biosfera2josue
+#define SSID2 "BIOINV_IOT" // "WiFiname" BIOINV_IOT
+#define PASS "bioinvdl2022" // "Password" bioinvdl2022
 #define AUTH "sanaIi1SHwpWbWnVj8U6_aNrDJycYY_I"
 #define IP "184.106.153.149" // thingspeak.com ip (do not change)
-String msg = "GET /update?api_key=K7KM5YEVFG35JWUD"; //change it with your channel Write key
+String msg = "GET /update?api_key=TPHQ9AYRMZAZAYE7"; //change it with your channel Write key
 const int Time_S = 120; //Change this to your prefered sampling interval in seconds, exampe 2 min is 120 seconds
 float Temp_C;
 float Temp_F;
 float Humidity;
+float Temp_C_2;
+float Humidity_2;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 void relay_setup() {
   pinMode(pin_motor_coco, OUTPUT);
   digitalWrite(pin_motor_coco, HIGH);
-  pinMode(pin_motor_arroz, OUTPUT);
-  digitalWrite(pin_motor_arroz, HIGH);
-  pinMode(pin_motor_lana, OUTPUT);
-  digitalWrite(pin_motor_lana, HIGH);
-  pinMode(pin_motor_perlita, OUTPUT);
-  digitalWrite(pin_motor_perlita, HIGH);
+  pinMode(pin_motor_coco_2, OUTPUT);
+  digitalWrite(pin_motor_coco_2, HIGH);
   pinMode(pin_extractor_in, OUTPUT);
   digitalWrite(pin_extractor_in, HIGH);
   pinMode(pin_extractor_out, OUTPUT);
@@ -65,6 +59,7 @@ void dh_setup() {
   Serial.println("Sample DHT22...");
   Serial.println("Temperature and Humidity Data");
   dht.begin();
+  dht_2.begin();
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -91,7 +86,11 @@ void setup() {
     Serial.println("Modulo RTC no encontrado !");  // muestra mensaje de error
     while (1);         // bucle infinito que detiene ejecucion del programa
   }
-  //rtc.adjust(DateTime(__DATE__,__TIME__));
+
+  if(rtc.lostPower()){
+    rtc.adjust(DateTime(__DATE__,__TIME__));
+  }
+  
   
   lc_setup();
 
@@ -100,12 +99,7 @@ void setup() {
 ///////////////////////////////////////////////////////////////////////////////////////////////
 void loop() {
   DateTime fecha = rtc.now();
-  
-  // read the input pin:
-  //int buttonState = digitalRead(pushButton);
-  // delay in between reads for stability
-  //delay(250);
-  // read without samples.
+
   byte temperature = 0;
   byte humidity = 0;
 
@@ -115,9 +109,11 @@ void loop() {
     //Serial.print(","); Serial.println(SimpleDHTErrDuration(err)); delay(1000);
     //return;
   //}
-
+  
   float h = dht.readHumidity();
   float t = dht.readTemperature();
+  float h_2 = dht_2.readHumidity();
+  float t_2 = dht_2.readTemperature();
   
   Serial.print(t); Serial.print(" *C, ");
   Serial.print(h); Serial.println(" H");
@@ -129,17 +125,12 @@ void loop() {
   //Serial.print(sustratoASensorValue);
   Serial.print("%");
   Serial.print("\n");
-
-  sustratoPSensorValue = analogRead(sustratoPSensorPin);
-  sustratoPPercentValue = map(sustratoPSensorValue,1020,880,0,100);
-  Serial.print("\nsustratoPercentValue: ");
-  //Serial.print(sustratoPPercentValue);
-  Serial.print(sustratoPSensorValue);
-  //Serial.print("%");
-  Serial.print("\n");
   
   Temp_C = t;
   Humidity = h;
+
+  Temp_C_2 = t_2;
+  Humidity_2 = h_2;
 
   lcd.setCursor(0, 0);
   lcd.print("T: ");
@@ -154,224 +145,31 @@ void loop() {
   lcd.print(h);
   lcd.print("%");
   lcd.setCursor(10, 1);
-  lcd.print("HS:");
-  lcd.print(sustratoPPercentValue);
-  lcd.print("%");
+  lcd.print("TI:");
+  lcd.print(t_2);
+  lcd.print("C");
   
   /////IF STATEMENTS /////////
-  if (fecha.hour() == 6 && fecha.minute() == 10 && fecha.second() == 15) {
+  if (fecha.minute() == 01 && fecha.second() == 15 && fecha.hour() >= 6 && fecha.hour() <= 18) {
     Send();
     delay(1000);
+    digitalWrite(pin_motor_coco, LOW);
+    digitalWrite(pin_motor_coco_2, LOW);
+  }
+
+  if (fecha.minute() == 05 && fecha.second() == 15 && fecha.hour() >= 6 && fecha.hour() <= 18) {
+    digitalWrite(pin_motor_coco, HIGH);
+    digitalWrite(pin_motor_coco_2, HIGH);
+  }
+
+  if (fecha.hour() == 6 && fecha.minute() == 10 && fecha.second() == 15) {
     lcd.backlight();
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
-  }
-
-  if (fecha.hour() == 6 && fecha.minute() == 14 && fecha.second() == 30) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  if (fecha.hour() == 7 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-    delay(500);
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
-  }
-
-  if (fecha.hour() == 7 && fecha.minute() == 05 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  if (fecha.hour() == 8 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-    delay(500);
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
-  }
-
-  if (fecha.hour() == 8 && fecha.minute() == 05 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  if (fecha.hour() == 9 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-    delay(500);
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
-  }
-
-  if (fecha.hour() == 9 && fecha.minute() == 05 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  if (fecha.hour() == 10 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-    delay(500);
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
-  }
-
-  if (fecha.hour() == 10 && fecha.minute() == 05 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  if (fecha.hour() == 11 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-    delay(500);
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
-  }
-
-  if (fecha.hour() == 11 && fecha.minute() == 05 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  if (fecha.hour() == 12 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-  }
-
-  if (fecha.hour() == 12 && fecha.minute() == 10 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
-  }
-
-  if (fecha.hour() == 12 && fecha.minute() == 14 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  if (fecha.hour() == 13 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-    delay(500);
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
-  }
-
-  if (fecha.hour() == 13 && fecha.minute() == 05 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  if (fecha.hour() == 14 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-    delay(500);
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
-  }
-
-  if (fecha.hour() == 14 && fecha.minute() == 05 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  if (fecha.hour() == 15 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-    delay(500);
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
-  }
-
-
-  if (fecha.hour() == 15 && fecha.minute() == 05 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  
-  if (fecha.hour() == 16 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-    delay(500);
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
-  }
-
-  if (fecha.hour() == 16 && fecha.minute() == 05 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  if (fecha.hour() == 17 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-    delay(500);
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
+    delay(1000);
   }
   
-  if (fecha.hour() == 17 && fecha.minute() == 05 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  if (fecha.hour() == 18 && fecha.minute() == 01 && fecha.second() == 15) {
+  if (fecha.minute() == 05 && fecha.second() == 30 && fecha.hour() > 18) {
     Send();
-    lcd.noBacklight();
-  }
-
-  if (fecha.hour() == 18 && fecha.minute() == 10 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, LOW);
-    digitalWrite(pin_motor_lana, LOW);
-  }
-  if (fecha.hour() == 18 && fecha.minute() == 14 && fecha.second() == 15) {
-    digitalWrite(pin_motor_coco, HIGH);
-    digitalWrite(pin_motor_lana, HIGH);
-  }
-
-  if (fecha.hour() == 19 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-  }
-
-  if (fecha.hour() == 20 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-  }
-
-  if (fecha.hour() == 21 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-
-  }
-
-  if (fecha.hour() == 22 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-
-  }
-
-  if (fecha.hour() == 23 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-
-  }
-
-  if (fecha.hour() == 00 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-
-  }
-  
-  if (fecha.hour() == 0 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-  }
-
-  if (fecha.hour() == 1 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-  }
-
-  if (fecha.hour() == 2 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-  }
-
-  if (fecha.hour() == 3 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-  }
-  
-  if (fecha.hour() == 4 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
-  }
-
-  if (fecha.hour() == 5 && fecha.minute() == 01 && fecha.second() == 15) {
-    Send();
+    delay(1000);
   }
 
   if (fecha.hour() >= 6 && fecha.hour() <= 18) {
@@ -385,24 +183,11 @@ void loop() {
     }
   }
   
-  if(sustratoAPercentValue < 40){
-    digitalWrite(pin_motor_arroz, LOW);
-    delay(6000);
-    digitalWrite(pin_motor_arroz, HIGH);
-  }
-
-  if(sustratoPPercentValue < 45){
-    digitalWrite(pin_motor_perlita, LOW);
-    delay(6000);
-    digitalWrite(pin_motor_perlita, HIGH);
-  }
-
-  //if(digitalRead(sensor_arroz_pin) == HIGH){
+  //if(sustratoAPercentValue < 40){
     //digitalWrite(pin_motor_arroz, LOW);
     //delay(6000);
     //digitalWrite(pin_motor_arroz, HIGH);
   //}
-
   delay(1000);
 }
 
@@ -416,15 +201,15 @@ void Send() {
   cmd += "&field1="; //field 1 for test value
   cmd += Temp_C; //change to temp_F for Fahrenheit
   cmd += "&field2="; //field
-  cmd += Humidity;
+  cmd += Temp_C_2;
   cmd += "&field3="; //field
-  cmd += sustratoAPercentValue;
+  cmd += Temp_C_2 - Temp_C;
   cmd += "&field4="; //field
-  cmd += sustratoPPercentValue;
-  //cmd += "&field5="; //field
-  //cmd += 100;
-  //cmd += "&field6="; //field
-  //cmd += 1000;
+  cmd += Humidity;
+  cmd += "&field5="; //field
+  cmd += Humidity_2;
+  cmd += "&field6="; //field
+  cmd += Humidity_2 - Humidity;
   //cmd += "&field7="; //field
   //cmd += 100;
   //cmd += "&field8="; //field
